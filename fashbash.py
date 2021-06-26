@@ -52,8 +52,12 @@ async def on_command_error(ctx, error):
 
 @bot.command(name="report")
 async def report(ctx, arg1, *oargs):
-    user = await commands.UserConverter().convert(ctx, arg1)
-    await addBan(user.id, " ".join(oargs), ctx.guild.id)
+    if discord.abc.GuildChannel.permissions_for(ctx.channel,ctx.author).administrator:
+        user = await commands.UserConverter().convert(ctx, arg1)
+        await addBan(user.id, " ".join(oargs), ctx.guild.id)
+        await ctx.send("Reported "+user.name)
+    else:
+        await ctx.send("You aren't allowed to do that")
 
 
 @bot.command(name="check")
