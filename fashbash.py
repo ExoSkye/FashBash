@@ -2,17 +2,17 @@ import os
 from dotenv import load_dotenv
 import discord
 from discord.ext import commands
-
+from discord_slash import SlashCommand, SlashContext
+from discord_slash.utils.manage_commands import create_option
 import pyodbc
 import datetime
-import traceback
-import aiohttp
+import subprocess
 
 load_dotenv()
 
-bot = commands.Bot(command_prefix=".")
+bot = commands.Bot(command_prefix=".",description="")
+slash = SlashCommand(bot)
 db: pyodbc.Connection = pyodbc.connect(os.environ["SQL_RW_STRING"])
-
 
 async def checkBan(id) -> list:
     cursor: pyodbc.Cursor = db.cursor()
@@ -50,27 +50,59 @@ async def on_command_error(ctx, error):
     print(error)
 
 
-@bot.command(name="report")
-async def report(ctx, arg1, *oargs):
+@slash.slash(
+    name="report",
+    description="Report a user to the DB",
+    options=[
+        create_option(name="user",
+                      description="User to report",
+                      option_type=6,
+                      required=True),
+        create_option(name="reason",
+                      description="Reason for report",
+                      option_type=3,
+                      required=True)
+    ])
+async def report(ctx, arg1, oargs):
     if discord.abc.GuildChannel.permissions_for(ctx.channel,ctx.author).administrator:
-        user = await commands.UserConverter().convert(ctx, arg1)
-        await addBan(user.id, " ".join(oargs), ctx.guild.id)
-        await ctx.send("Reported "+user.name)
+        await addBan(arg1.id, oargs, ctx.guild.id)
+        await ctx.send("Reported "+arg1.name)
     else:
         await ctx.send("You aren't allowed to do that")
 
 
-@bot.command(name="check")
+@slash.slash(
+    name="check",
+    description="Checks if a user has been reported to the DB",
+    options=[
+        create_option(name="user",
+                      description="User to report",
+                      option_type=6,
+                      required=True)
+    ])
 async def check(ctx, args):
-    args = args.split(" ")
-    user = await commands.UserConverter().convert(ctx, args[0])
-    output = await checkBan(user.id)
+    output = await checkBan(args.id)
     if len(output) > 0:
-        output = output[0]
-        banned_on = await commands.GuildConverter().convert(ctx, str(output[2]))
-        await ctx.send("User was previously banned\nServer: " + banned_on.name + "\nExpires: " + str(output[3].day) + "/" + str(output[3].month) + "/" + str(output[3].year) + "\nReason: " + output[1])
+        output_str = "**User was previously banned**\n"
+        i = 0
+        for ban in output:
+            banned_on = await commands.GuildConverter().convert(ctx, str(ban[2]))
+            output_str += ("**Ban " + str(i+1) + ":**\nServer: " + banned_on.name + "\nExpires: " + str(ban[3].day) + "/" + str(ban[3].month) + "/" + str(ban[3].year) + "\nReason: " + ban[1] + "\n")
+            i += 1
+        await ctx.send(output_str)
     else:
         await ctx.send("User hasn't been banned previously")
 
+@slash.slash(
+    name="fashbash",
+    description="Gives some information about this bot"
+)
+async def fashbash(ctx):
+    output = subprocess.check_output(["git","shortlog","-sne"])
+    await ctx.send("**FashBash**\nFashBash is a small bot which syncs bans between servers designed for the leftist community\nThe GitHub repo is: https://github.com/ProtoByter/FashBash\n**Contributors**\n"+output)
+
+@bot.event
+async def on_ready():
+    print("Ready!")
 
 bot.run(os.environ["TOKEN"])
