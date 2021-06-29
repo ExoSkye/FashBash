@@ -69,10 +69,10 @@ async def on_command_error(ctx, error):
                       option_type=3,
                       required=True)
     ])
-async def report(ctx, arg1, oargs):
+async def report(ctx, user, reason):
     if discord.abc.GuildChannel.permissions_for(ctx.channel, ctx.author).administrator:
-        await addBan(arg1.id, oargs, ctx.guild.id)
-        await ctx.send("Reported " + arg1.name)
+        await addBan(user.id, reason, ctx.guild.id)
+        await ctx.send("Reported " + user.name)
     else:
         await ctx.send("You aren't allowed to do that")
 
@@ -86,8 +86,8 @@ async def report(ctx, arg1, oargs):
                       option_type=6,
                       required=True)
     ])
-async def check(ctx, args):
-    output = await checkBan(args.id)
+async def check(ctx, user):
+    output = await checkBan(user.id)
     if len(output) > 0:
         output_str = "**User was previously banned**\n"
         i = 0
