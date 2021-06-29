@@ -19,7 +19,7 @@ jobs:
     runOnce:
       preDeploy:
         steps:
-          - script: sudo systemctl stop fashbash
+          - script: systemctl stop fashbash
       deploy:
         steps:
           - task: Bash@3
@@ -28,7 +28,7 @@ jobs:
               script: |
                 cd /home/azureuser/FashBash
                 git pull
-                sudo systemctl start FashBash
+                systemctl start FashBash
       on:
           failure:
             steps:
