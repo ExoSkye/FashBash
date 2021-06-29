@@ -119,7 +119,7 @@ async def fashbash(ctx: SlashContext):
         except KeyError:
             count[commit.author.name] = 1
 
-    sorted_count = dict(sorted(count.items(), key=lambda item: item[1]))
+    sorted_count = dict(sorted(count.items(), key=lambda item: item[1],reverse=True))
 
     sorted_count = [{x[0],str(x[1])} for x in sorted_count.items()]
 
