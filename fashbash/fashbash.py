@@ -2,7 +2,6 @@ import logging
 import os
 import tabulate
 import git
-from git import *
 from dotenv import load_dotenv
 import discord
 from discord.ext import commands
@@ -106,7 +105,7 @@ async def check(ctx, user):
     description="Gets some information about FashBash"
 )
 async def fashbash(ctx: SlashContext):
-    repo = Repo(os.getcwd())
+    repo = git.Repo(os.getcwd())
     o = repo.remotes.origin
     o.pull()
     commits = list(repo.iter_commits())
