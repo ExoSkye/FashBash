@@ -8,7 +8,7 @@ import discord
 from discord.ext import commands
 from discord_slash import SlashCommand, SlashContext
 from discord_slash.utils.manage_commands import create_option
-import pyodbc
+import pymongo
 import datetime
 import subprocess
 
@@ -17,37 +17,39 @@ load_dotenv()
 
 bot = commands.Bot(command_prefix=".", description="")
 slash = SlashCommand(bot, sync_commands=True)
-db: pyodbc.Connection = pyodbc.connect(os.environ["SQL_RW_STRING"])
+mongo_client_rw = pymongo.MongoClient(
+    "mongodb+srv://" + os.environ["MONGO_RW_USER"] + ":" + os.environ["MONGO_RW_PWD"] + "@" + os.environ[
+        "MONGO_DOMAIN"] + "/" + os.environ["MONGO_DB"] + "?retryWrites=true&w=majority")
+mongo_client_r = pymongo.MongoClient(
+    "mongodb+srv://" + os.environ["MONGO_R_USER"] + ":" + os.environ["MONGO_R_PWD"] + "@" + os.environ[
+        "MONGO_DOMAIN"] + "/" + os.environ["MONGO_DB"] + "?retryWrites=true&w=majority")
 
 
-async def checkBan(id) -> list:
-    cursor: pyodbc.Cursor = db.cursor()
-    cursor.execute("""
-        SELECT * FROM FashBash.dbo.BANS WHERE ID=?
-    """, [id])
-    output = cursor.fetchall()
-    cursor.close()
-    return output
+async def checkBan(id) -> (list, int):
+    collection = mongo_client_r["fashbash"]["bans"]
+    query = {"id": id}
+    count = collection.count_documents(query)
+    if count > 0:
+        doc = collection.find(query)
+        return doc, count
+    else:
+        return [], count
 
 
 async def addBan(id, reason, server) -> None:
-    cursor: pyodbc.Cursor = db.cursor()
-    cursor.execute("""
-        INSERT INTO FashBash.dbo.BANS (ID,REASON,SERVER,EXPIRE)
-        VALUES (?,?,?,?)
-    """, [id, reason, server, datetime.date.today() + datetime.timedelta(days=365)])
-    cursor.commit()
-    cursor.close()
+    collection = mongo_client_rw["fashbash"]["bans"]
+    collection.insert_one({"id": id,
+                       "reason": reason,
+                       "server": server,
+                       "expire_day": datetime.datetime.now().day,
+                       "expire_month": datetime.datetime.now().month,
+                       "expire_year": datetime.datetime.now().year + 1
+                       })
 
 
 async def unBan(id) -> None:
-    cursor: pyodbc.Cursor = db.cursor()
-    cursor.execute("""
-            UPDATE FashBash.dbo.BANS
-            SET EXPIRE = ?
-            WHERE ID=?
-        """, [datetime.date(0, 0, 0), id])
-    cursor.close()
+    collection = mongo_client_rw["fashbash"]["bans"]
+    collection.update({"id": id}, {"$set": {"expire_year": 0}})
 
 
 @bot.event
@@ -87,14 +89,14 @@ async def report(ctx, user, reason):
                       required=True)
     ])
 async def check(ctx, user):
-    output = await checkBan(user.id)
-    if len(output) > 0:
+    output, bans = await checkBan(user.id)
+    if bans > 0:
         output_str = "**User was previously banned**\n"
         i = 0
         for ban in output:
-            banned_on = await commands.GuildConverter().convert(ctx, str(ban[2]))
+            banned_on = await commands.GuildConverter().convert(ctx, str(ban["server"]))
             output_str += ("**Ban " + str(i + 1) + ":**\nServer: " + banned_on.name + "\nExpires: " + str(
-                ban[3].day) + "/" + str(ban[3].month) + "/" + str(ban[3].year) + "\nReason: " + ban[1] + "\n")
+                ban["expire_day"]) + "/" + str(ban["expire_month"]) + "/" + str(ban["expire_year"]) + "\nReason: " + ban["reason"] + "\n")
             i += 1
         await ctx.send(output_str)
     else:
@@ -119,11 +121,11 @@ async def fashbash(ctx: SlashContext):
         except KeyError:
             count[commit.author.name] = 1
 
-    sorted_count = dict(sorted(count.items(), key=lambda item: item[1],reverse=True))
+    sorted_count = dict(sorted(count.items(), key=lambda item: item[1]))
 
-    sorted_count = [{x[0],str(x[1])} for x in sorted_count.items()]
+    sorted_count = [{x[0], str(x[1])} for x in sorted_count.items()]
 
-    output = tabulate.tabulate(sorted_count,["Committer","Commits"],tablefmt="grid")
+    output = tabulate.tabulate(sorted_count, ["Committer", "Commits"], tablefmt="grid")
     await ctx.send(
         """**FashBash**
 FashBash is a small bot which syncs bans between servers and is designed for the leftist community to keep fascist ancaps and the like from raiding their server
@@ -135,5 +137,6 @@ The GitHub repo is: https://github.com/ProtoByter/FashBash
 @bot.event
 async def on_ready():
     print("Ready!")
+
 
 bot.run(os.environ["TOKEN"])
