@@ -1,6 +1,4 @@
 discord-py-slash-command~=2.0.4
 discord-py~=1.7.3
-gitpython~=3.1.18
 python-dotenv~=0.18.0
-pyodbc~=4.0.30
-tabulate~=0.8.9
+pymongo~=3.11.4

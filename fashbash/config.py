@@ -41,7 +41,12 @@ def create_config():
 
             data = {
                 "token": input("Discord bot token: "),
-                "prefix": input("Discord bot prefix: "),
+                "mongo_db_url": input("MongoDB URL: "),
+                "mongo_db_name": input("MongoDB Database name: "),
+                "mongo_db_r_user": input("MongoDB Read-only username: "),
+                "mongo_db_r_passwd": input("MongoDB Read-only password: "),
+                "mongo_db_rw_user": input("MongoDB Read-write user: "),
+                "mongo_db_rw_passwd": input("MongoDB Read-write password: "),
                 "log_level": 20 # logging.INFO
             }
 
